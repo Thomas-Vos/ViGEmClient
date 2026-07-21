@@ -72,6 +72,7 @@ typedef struct _VIGEM_TARGET_T
     HANDLE Ds4CachedOutputReportUpdateAvailable;
     CRITICAL_SECTION Ds4CachedOutputReportUpdateLock;
     BOOLEAN IsDisposing;
+    std::thread NotificationThread;
 } VIGEM_TARGET;
 
 #define DEVICE_IO_CONTROL_BEGIN	\

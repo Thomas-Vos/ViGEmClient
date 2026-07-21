@@ -788,7 +788,7 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 	else
 		ResetEvent(target->CancelNotificationThreadEvent);
 
-	std::thread _async{
+	target->NotificationThread = std::thread{
 		[](
 		PVIGEM_TARGET _Target,
 		PVIGEM_CLIENT _Client,
@@ -814,13 +814,16 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 
 				if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 				{
-					if (_Target->Notification == nullptr)
+					auto callback = reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(
+						_Target->Notification
+					);
+					if (callback == nullptr)
 					{
 						DEVICE_IO_CONTROL_END;
 						return;
 					}
 
-					reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(_Target->Notification)(
+					callback(
 						_Client, _Target, xrn.LargeMotor, xrn.SmallMotor, xrn.LedNumber, _UserData
 					);
 
@@ -836,8 +839,6 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 		},
 		target, vigem, userData
 	};
-
-	_async.detach();
 
 	return VIGEM_ERROR_NONE;
 }
@@ -877,7 +878,7 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 	else
 		ResetEvent(target->CancelNotificationThreadEvent);
 
-	std::thread _async{
+	target->NotificationThread = std::thread{
 		[](
 		PVIGEM_TARGET _Target,
 		PVIGEM_CLIENT _Client,
@@ -903,13 +904,16 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 
 				if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 				{
-					if (_Target->Notification == nullptr)
+					auto callback = reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(
+						_Target->Notification
+					);
+					if (callback == nullptr)
 					{
 						DEVICE_IO_CONTROL_END;
 						return;
 					}
 
-					reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(_Target->Notification)(
+					callback(
 						_Client, _Target, ds4rn.Report.LargeMotor,
 						ds4rn.Report.SmallMotor,
 						ds4rn.Report.LightbarColor, _UserData
@@ -928,8 +932,6 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 		target, vigem, userData
 	};
 
-	_async.detach();
-
 	return VIGEM_ERROR_NONE;
 }
 
@@ -937,6 +939,9 @@ void vigem_target_x360_unregister_notification(PVIGEM_TARGET target)
 {
 	if (target->CancelNotificationThreadEvent != nullptr)
 		SetEvent(target->CancelNotificationThreadEvent);
+
+	if (target->NotificationThread.joinable())
+		target->NotificationThread.join();
 
 	if (target->CancelNotificationThreadEvent != nullptr)
 	{
