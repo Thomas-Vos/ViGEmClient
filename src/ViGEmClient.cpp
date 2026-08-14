@@ -812,22 +812,44 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 					&lOverlapped
 				);
 
-				if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
+				HANDLE handles[] = {
+					_Target->CancelNotificationThreadEvent,
+					lOverlapped.hEvent
+				};
+
+				DWORD waitResult = WaitForMultipleObjects(
+					2,
+					handles,
+					FALSE,
+					INFINITE
+				);
+
+				if (waitResult == WAIT_OBJECT_0)
 				{
-					auto callback = reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(
-						_Target->Notification
-					);
-					if (callback == nullptr)
+					// CancelNotificationThreadEvent was signaled
+					DEVICE_IO_CONTROL_END;
+					return;
+				}
+
+				if (waitResult == WAIT_OBJECT_0 + 1)
+				{
+					if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 					{
-						DEVICE_IO_CONTROL_END;
-						return;
+						auto callback = reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(
+							_Target->Notification
+						);
+						if (callback == nullptr)
+						{
+							DEVICE_IO_CONTROL_END;
+							return;
+						}
+
+						callback(
+							_Client, _Target, xrn.LargeMotor, xrn.SmallMotor, xrn.LedNumber, _UserData
+						);
+
+						continue;
 					}
-
-					callback(
-						_Client, _Target, xrn.LargeMotor, xrn.SmallMotor, xrn.LedNumber, _UserData
-					);
-
-					continue;
 				}
 
 				if (GetLastError() == ERROR_ACCESS_DENIED || GetLastError() == ERROR_OPERATION_ABORTED)
@@ -902,24 +924,46 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 					&lOverlapped
 				);
 
-				if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
+				HANDLE handles[] = {
+					_Target->CancelNotificationThreadEvent,
+					lOverlapped.hEvent
+				};
+
+				DWORD waitResult = WaitForMultipleObjects(
+					2,
+					handles,
+					FALSE,
+					INFINITE
+				);
+
+				if (waitResult == WAIT_OBJECT_0)
 				{
-					auto callback = reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(
-						_Target->Notification
-					);
-					if (callback == nullptr)
+					// CancelNotificationThreadEvent was signaled
+					DEVICE_IO_CONTROL_END;
+					return;
+				}
+
+				if (waitResult == WAIT_OBJECT_0 + 1)
+				{
+					if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 					{
-						DEVICE_IO_CONTROL_END;
-						return;
+						auto callback = reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(
+							_Target->Notification
+							);
+						if (callback == nullptr)
+						{
+							DEVICE_IO_CONTROL_END;
+							return;
+						}
+
+						callback(
+							_Client, _Target, ds4rn.Report.LargeMotor,
+							ds4rn.Report.SmallMotor,
+							ds4rn.Report.LightbarColor, _UserData
+						);
+
+						continue;
 					}
-
-					callback(
-						_Client, _Target, ds4rn.Report.LargeMotor,
-						ds4rn.Report.SmallMotor,
-						ds4rn.Report.LightbarColor, _UserData
-					);
-
-					continue;
 				}
 
 				if (GetLastError() == ERROR_ACCESS_DENIED || GetLastError() == ERROR_OPERATION_ABORTED)
